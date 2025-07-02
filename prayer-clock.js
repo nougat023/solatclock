@@ -14,10 +14,12 @@ function getAccurateTime() {
 
 async function fetchPrayerTimes() {
   try {
-    const state = "selangor"; // ← Change this if needed
+    //const state = "selangor"; // ← Change this if needed
     const zone = "SGR01";     // ← Change this if needed
 
-    const res = await fetch(`https://api.waktusolat.app/v1/prayer/${state}/${zone}`);
+    const today = new Date().getDate().toString();
+
+    const res = await fetch(`https://api.waktusolat.app/solat/${zone}/${today}`);
     const data = await res.json();
 
     prayerTimes = {
