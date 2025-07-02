@@ -14,29 +14,47 @@ function getAccurateTime() {
 
 async function fetchPrayerTimes() {
   try {
-    //const state = "selangor"; // ← Change this if needed
-    const zone = "SGR01";     // ← Change this if needed
-
     const today = new Date().getDate().toString();
 
-    const res = await fetch(`https://api.waktusolat.app/solat/${zone}/${today}`);
-    const data = await res.json();
+    // Step 1: Get GPS location
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
 
-    prayerTimes = {
-      Fajr: data.prayerTime.fajr,
-      Sunrise: data.prayerTime.syuruk,
-      Dhuhr: data.prayerTime.dhuhr,
-      Asr: data.prayerTime.asr,
-      Maghrib: data.prayerTime.maghrib,
-      Isha: data.prayerTime.isha
-    };
+      // Step 2: Fetch zone using lat/lng
+      const zoneRes = await fetch(`https://api.waktusolat.app/zones/${lat}/${lng}`);
+      const zoneData = await zoneRes.json();
 
-    animate();
+      const zone = zoneData.zone; // e.g. "SGR01"
+
+      // Step 3: Fetch prayer times using zone
+      const prayerRes = await fetch(`https://api.waktusolat.app/solat/${zone}/${today}`);
+      const prayerData = await prayerRes.json();
+
+      const p = prayerData.prayerTime;
+
+      // Normalize to HH:mm
+      function normalize(t) {
+        return t.slice(0, 5);
+      }
+
+      prayerTimes = {
+        Fajr: normalize(p.fajr),
+        Sunrise: normalize(p.syuruk),
+        Dhuhr: normalize(p.dhuhr),
+        Asr: normalize(p.asr),
+        Maghrib: normalize(p.maghrib),
+        Isha: normalize(p.isha)
+      };
+
+      animate(); // Start drawing
+    }, (err) => {
+      console.error("Location access denied:", err.message);
+    });
   } catch (err) {
     console.error("Failed to fetch prayer times:", err);
   }
 }
-
 function drawClock() {
   const canvas = document.getElementById("prayerCanvas");
   const ctx = canvas.getContext("2d");
