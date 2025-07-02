@@ -23,12 +23,12 @@ async function fetchPrayerTimes() {
     const data = await res.json();
 
     prayerTimes = {
-      Fajr: data.prayerTime.Fajr,
-      Sunrise: data.prayerTime.Syuruk,
-      Dhuhr: data.prayerTime.Dhuhr,
-      Asr: data.prayerTime.Asr,
-      Maghrib: data.prayerTime.Maghrib,
-      Isha: data.prayerTime.Isha
+      Fajr: data.prayerTime.fajr,
+      Sunrise: data.prayerTime.syuruk,
+      Dhuhr: data.prayerTime.dhuhr,
+      Asr: data.prayerTime.asr,
+      Maghrib: data.prayerTime.maghrib,
+      Isha: data.prayerTime.isha
     };
 
     animate();
@@ -196,7 +196,7 @@ function getNextPrayer(currentMinutes) {
 }
 
 function updateClockText() {
-  const currentTime = new Date(new Date().getTime() + 195 * 60000); // apply offset for testing
+  const currentTime = new Date(); // apply offset for testing
   const hours = currentTime.getHours();
   const minutes = currentTime.getMinutes();
   const totalMinutes = hours * 60 + minutes;
