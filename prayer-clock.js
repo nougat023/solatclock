@@ -12,37 +12,10 @@ function getAccurateTime() {
   return new Date();
 }
 
-// Get user's lat/lng
-function getUserLocation() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject("Geolocation not supported");
-    } else {
-      navigator.geolocation.getCurrentPosition(
-        pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        err => reject(err.message)
-      );
-    }
-  });
-}
-
-// Get prayer zone from coordinates
-async function getZoneFromCoordinates(lat, lng) {
+async function fetchPrayerTimes() {
   try {
-    const res = await fetch(`https://api.waktusolat.app/v1/zone?lat=${lat}&lng=${lng}`);
-    const data = await res.json();
-    return { state: data.state, zone: data.zone };
-  } catch (err) {
-    console.error("Error getting zone:", err);
-    throw err;
-  }
-}
-
-// Fetch prayer times from API
-async function fetchPrayerTimesByLocation() {
-  try {
-    const { lat, lng } = await getUserLocation();
-    const { state, zone } = await getZoneFromCoordinates(lat, lng);
+    const state = "selangor"; // ← Change this if needed
+    const zone = "SGR01";     // ← Change this if needed
 
     const res = await fetch(`https://api.waktusolat.app/v1/prayer/${state}/${zone}`);
     const data = await res.json();
@@ -58,7 +31,7 @@ async function fetchPrayerTimesByLocation() {
 
     animate();
   } catch (err) {
-    console.error("Failed to load location-based prayer times:", err);
+    console.error("Failed to fetch prayer times:", err);
   }
 }
 
@@ -245,4 +218,4 @@ function animate() {
 }
 
 // Start everything
-fetchPrayerTimesByLocation();
+fetchPrayerTimes();
