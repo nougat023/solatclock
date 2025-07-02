@@ -2,7 +2,7 @@ let prayerTimes = {}; // Filled dynamically
 
 const prayerColors = {
   Fajr: "#00BFFF",
-  Dhuhr: "#B8860B"  // DarkGoldenRod
+  Dhuhr: "#B8860B",  // DarkGoldenRod
   Asr: "#FF8C00",
   Maghrib: "#DC143C",
   Isha: "#8A2BE2"
