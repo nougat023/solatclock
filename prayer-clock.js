@@ -8,32 +8,28 @@ const prayerColors = {
   Isha: "#8A2BE2"
 };
 
+const TEST_OFFSET_MINUTES = 195;
+
 function getAccurateTime() {
   return new Date();
 }
 
 async function fetchPrayerTimes() {
   try {
-    const today = new Date().getDate().toString();
+    const today = new Date().getDate().toString().padStart(2, '0');
 
-    // Step 1: Get GPS location
     navigator.geolocation.getCurrentPosition(async (position) => {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
 
-      // Step 2: Fetch zone using lat/lng
       const zoneRes = await fetch(`https://api.waktusolat.app/zones/${lat}/${lng}`);
       const zoneData = await zoneRes.json();
+      const zone = zoneData.zone;
 
-      const zone = zoneData.zone; // e.g. "SGR01"
-
-      // Step 3: Fetch prayer times using zone
       const prayerRes = await fetch(`https://api.waktusolat.app/solat/${zone}/${today}`);
       const prayerData = await prayerRes.json();
-
       const p = prayerData.prayerTime;
 
-      // Normalize to HH:mm
       function normalize(t) {
         return t.slice(0, 5);
       }
@@ -47,7 +43,7 @@ async function fetchPrayerTimes() {
         Isha: normalize(p.isha)
       };
 
-      animate(); // Start drawing
+      animate();
     }, (err) => {
       console.error("Location access denied:", err.message);
     });
@@ -55,6 +51,7 @@ async function fetchPrayerTimes() {
     console.error("Failed to fetch prayer times:", err);
   }
 }
+
 function drawClock() {
   const canvas = document.getElementById("prayerCanvas");
   const ctx = canvas.getContext("2d");
@@ -64,18 +61,15 @@ function drawClock() {
   const baseRadius = 130;
   const arcRadius = baseRadius + 40;
   const orbitRadius = baseRadius + 20;
-  const labelRadius = arcRadius + 25;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Clock face
   ctx.strokeStyle = "#666";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Clock numbers
   ctx.font = "16px sans-serif";
   ctx.fillStyle = "#fff";
   ctx.textAlign = "center";
@@ -87,60 +81,60 @@ function drawClock() {
     ctx.fillText(n.toString(), x, y);
   }
 
-  // Clock time
   const nowReal = getAccurateTime();
-  const nowOffset = new Date(nowReal.getTime());
-  nowOffset.setMinutes(nowOffset.getMinutes() + 195); // ⏰ test offset
+  const nowOffset = new Date(nowReal.getTime() + TEST_OFFSET_MINUTES * 60000);
 
   const hours = nowOffset.getHours();
   const minutes = nowOffset.getMinutes();
   const seconds = nowOffset.getSeconds();
 
-  const totalMinutes = nowReal.getHours() * 60 + nowReal.getMinutes(); // real for sun/prayers
+  const totalMinutes = nowReal.getHours() * 60 + nowReal.getMinutes();
 
   const prayerTimeList = getPrayerTimeList();
   const currentPrayer = getCurrentPrayer(totalMinutes, prayerTimeList);
 
-  // Prayer arcs
-  for (let i = 0; i < prayerTimeList.length; i++) {
-    const { name, minutes: start } = prayerTimeList[i];
-    if (name === "Sunrise") continue;
+  const layeredNames = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+  let layerOffset = 0;
 
+  for (let name of layeredNames) {
+    const start = getPrayerTimeMinutes(name) % 720;
     let end;
-    if (name === "Fajr") end = getPrayerTimeMinutes("Sunrise");
-    else if (name === "Isha") end = getPrayerTimeMinutes("Fajr") + 1440;
-    else {
-      const next = prayerTimeList.find((p, idx) => idx > i && p.name !== "Sunrise");
-      end = next ? next.minutes : 1440;
-    }
 
-    const startAngle = ((start / 1440) * 2 * Math.PI) - Math.PI / 2;
-    const endAngle = ((end / 1440) * 2 * Math.PI) - Math.PI / 2;
+    if (name === "Fajr") end = getPrayerTimeMinutes("Sunrise") % 720;
+    else if (name === "Dhuhr") end = getPrayerTimeMinutes("Asr") % 720;
+    else if (name === "Asr") end = getPrayerTimeMinutes("Maghrib") % 720;
+    else if (name === "Maghrib") end = getPrayerTimeMinutes("Isha") % 720;
+    else if (name === "Isha") end = (getPrayerTimeMinutes("Fajr") % 720) + 720;
+
+    const startAngle = ((start / 720) * 2 * Math.PI) - Math.PI / 2;
+    const endAngle = ((end / 720) * 2 * Math.PI) - Math.PI / 2;
 
     ctx.beginPath();
     ctx.strokeStyle = prayerColors[name];
     ctx.lineWidth = name === currentPrayer ? 10 : 6;
-    ctx.arc(cx, cy, arcRadius, startAngle, endAngle, false);
+    ctx.arc(cx, cy, arcRadius + layerOffset, startAngle, endAngle, false);
     ctx.stroke();
 
-    const midMinutes = (start + end) / 2;
-    const midAngle = ((midMinutes / 1440) * 2 * Math.PI) - Math.PI / 2;
-    const lx = cx + Math.cos(midAngle) * labelRadius;
-    const ly = cy + Math.sin(midAngle) * labelRadius;
+    // 🟢 Fixed label position
+    let mid = (start + (end < start ? end + 720 : end)) / 2;
+    mid = mid % 720;
+    const midAngle = ((mid / 720) * 2 * Math.PI) - Math.PI / 2;
+    const lx = cx + Math.cos(midAngle) * (arcRadius + layerOffset + 15);
+    const ly = cy + Math.sin(midAngle) * (arcRadius + layerOffset + 15);
     ctx.font = "12px sans-serif";
     ctx.fillStyle = "#fff";
     ctx.fillText(name, lx, ly);
+
+    layerOffset += 12;
   }
 
-  // Sun or moon icon
-  const angleNow = ((totalMinutes / 1440) * 2 * Math.PI) - Math.PI / 2;
+  const angleNow = ((totalMinutes % 720) / 720) * 2 * Math.PI - Math.PI / 2;
   const iconX = cx + Math.cos(angleNow) * orbitRadius;
   const iconY = cy + Math.sin(angleNow) * orbitRadius;
   const isDay = totalMinutes >= getPrayerTimeMinutes("Sunrise") && totalMinutes < getPrayerTimeMinutes("Maghrib");
   ctx.font = "20px sans-serif";
   ctx.fillText(isDay ? "☀️" : "🌙", iconX, iconY);
 
-  // Clock hand angles
   const hourDeg = ((hours % 12) + minutes / 60) * 30;
   const minDeg = (minutes + seconds / 60) * 6;
   const secDeg = seconds * 6;
@@ -153,7 +147,6 @@ function drawClock() {
   drawHand(ctx, cx, cy, minAngle, baseRadius * 0.75, 6, "#00ff00");
   drawHand(ctx, cx, cy, secAngle, baseRadius * 0.9, 3, "#ff3333");
 
-  // Center circle
   ctx.beginPath();
   ctx.arc(cx, cy, 4, 0, Math.PI * 2);
   ctx.fillStyle = "#fff";
@@ -214,7 +207,7 @@ function getNextPrayer(currentMinutes) {
 }
 
 function updateClockText() {
-  const currentTime = new Date(); // apply offset for testing
+  const currentTime = getAccurateTime();
   const hours = currentTime.getHours();
   const minutes = currentTime.getMinutes();
   const totalMinutes = hours * 60 + minutes;
@@ -237,5 +230,5 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-// Start everything
+// Start
 fetchPrayerTimes();
