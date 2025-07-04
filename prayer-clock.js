@@ -2,7 +2,7 @@ let prayerTimes = {}; // Filled dynamically
 
 const prayerColors = {
   Fajr: "#00BFFF",
-  Dhuhr: "#B8860B",  // DarkGoldenRod
+  Dhuhr: "#B8860B",
   Asr: "#FF8C00",
   Maghrib: "#DC143C",
   Isha: "#8A2BE2"
@@ -54,52 +54,58 @@ async function fetchPrayerTimes() {
 
 function drawClock() {
   const canvas = document.getElementById("prayerCanvas");
+  resizeCanvas(canvas); // 📐 Automatically resize and scale canvas
   const ctx = canvas.getContext("2d");
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
 
-  const baseRadius = 130;
-  const arcRadius = baseRadius + 40;
-  const orbitRadius = baseRadius + 20;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  const cx = width / 2;
+  const cy = height / 2;
+  const minDim = Math.min(width, height);
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const baseRadius = minDim * 0.25;
+  const arcRadius = baseRadius + minDim * 0.08;
+  const orbitRadius = baseRadius + minDim * 0.04;
+  const fontBase = minDim * 0.032;
 
+  ctx.clearRect(0, 0, width, height);
+
+  // Base circle
   ctx.strokeStyle = "#666";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.font = "16px sans-serif";
+  // Hour numbers
+  ctx.font = `${fontBase}px sans-serif`;
   ctx.fillStyle = "#fff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   for (let n = 1; n <= 12; n++) {
     const angle = (n / 12) * 2 * Math.PI - Math.PI / 2;
-    const x = cx + Math.cos(angle) * (baseRadius - 20);
-    const y = cy + Math.sin(angle) * (baseRadius - 20);
+    const x = cx + Math.cos(angle) * (baseRadius - fontBase);
+    const y = cy + Math.sin(angle) * (baseRadius - fontBase);
     ctx.fillText(n.toString(), x, y);
   }
 
+  // Time & prayer logic
   const nowReal = getAccurateTime();
   const nowOffset = new Date(nowReal.getTime() + TEST_OFFSET_MINUTES * 60000);
-
   const hours = nowOffset.getHours();
   const minutes = nowOffset.getMinutes();
   const seconds = nowOffset.getSeconds();
-
   const totalMinutes = nowReal.getHours() * 60 + nowReal.getMinutes();
 
   const prayerTimeList = getPrayerTimeList();
   const currentPrayer = getCurrentPrayer(totalMinutes, prayerTimeList);
-
   const layeredNames = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
   let layerOffset = 0;
 
+  // Prayer arcs + labels
   for (let name of layeredNames) {
     const start = getPrayerTimeMinutes(name) % 720;
     let end;
-
     if (name === "Fajr") end = getPrayerTimeMinutes("Sunrise") % 720;
     else if (name === "Dhuhr") end = getPrayerTimeMinutes("Asr") % 720;
     else if (name === "Asr") end = getPrayerTimeMinutes("Maghrib") % 720;
@@ -111,44 +117,41 @@ function drawClock() {
 
     ctx.beginPath();
     ctx.strokeStyle = prayerColors[name];
-    ctx.lineWidth = name === currentPrayer ? 10 : 6;
+    ctx.lineWidth = name === currentPrayer ? minDim * 0.02 : minDim * 0.012;
     ctx.arc(cx, cy, arcRadius + layerOffset, startAngle, endAngle, false);
     ctx.stroke();
 
-    // 🟢 Fixed label position
-    let mid = (start + (end < start ? end + 720 : end)) / 2;
-    mid = mid % 720;
+    const mid = ((start + (end < start ? end + 720 : end)) / 2) % 720;
     const midAngle = ((mid / 720) * 2 * Math.PI) - Math.PI / 2;
-    const lx = cx + Math.cos(midAngle) * (arcRadius + layerOffset + 15);
-    const ly = cy + Math.sin(midAngle) * (arcRadius + layerOffset + 15);
-    ctx.font = "12px sans-serif";
+    const lx = cx + Math.cos(midAngle) * (arcRadius + layerOffset + fontBase);
+    const ly = cy + Math.sin(midAngle) * (arcRadius + layerOffset + fontBase);
+    ctx.font = `${fontBase * 0.75}px sans-serif`;
     ctx.fillStyle = "#fff";
     ctx.fillText(name, lx, ly);
 
-    layerOffset += 12;
+    layerOffset += minDim * 0.025;
   }
 
+  // Time marker ☀️ or 🌙
   const angleNow = ((totalMinutes % 720) / 720) * 2 * Math.PI - Math.PI / 2;
   const iconX = cx + Math.cos(angleNow) * orbitRadius;
   const iconY = cy + Math.sin(angleNow) * orbitRadius;
   const isDay = totalMinutes >= getPrayerTimeMinutes("Sunrise") && totalMinutes < getPrayerTimeMinutes("Maghrib");
-  ctx.font = "20px sans-serif";
+  ctx.font = `${fontBase}px sans-serif`;
   ctx.fillText(isDay ? "☀️" : "🌙", iconX, iconY);
 
+  // Clock hands
   const hourDeg = ((hours % 12) + minutes / 60) * 30;
   const minDeg = (minutes + seconds / 60) * 6;
   const secDeg = seconds * 6;
 
-  const hourAngle = (hourDeg - 90) * (Math.PI / 180);
-  const minAngle = (minDeg - 90) * (Math.PI / 180);
-  const secAngle = (secDeg - 90) * (Math.PI / 180);
+  drawHand(ctx, cx, cy, degToRad(hourDeg), baseRadius * 0.5, minDim * 0.015, "#ffffff");
+  drawHand(ctx, cx, cy, degToRad(minDeg), baseRadius * 0.75, minDim * 0.012, "#00ff00");
+  drawHand(ctx, cx, cy, degToRad(secDeg), baseRadius * 0.9, minDim * 0.008, "#ff3333");
 
-  drawHand(ctx, cx, cy, hourAngle, baseRadius * 0.5, 8, "#ffffff");
-  drawHand(ctx, cx, cy, minAngle, baseRadius * 0.75, 6, "#00ff00");
-  drawHand(ctx, cx, cy, secAngle, baseRadius * 0.9, 3, "#ff3333");
-
+  // Center dot
   ctx.beginPath();
-  ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+  ctx.arc(cx, cy, minDim * 0.01, 0, Math.PI * 2);
   ctx.fillStyle = "#fff";
   ctx.fill();
 }
@@ -228,6 +231,19 @@ function animate() {
   drawClock();
   updateClockText();
   requestAnimationFrame(animate);
+}
+
+function resizeCanvas(canvas) {
+  const scale = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  canvas.getContext("2d").setTransform(scale, 0, 0, scale, 0, 0);
+}
+
+function degToRad(deg) {
+  return (deg - 90) * (Math.PI / 180);
 }
 
 // Start
